@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MoneyOrder</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body { background: #f3f5fb; color: #20243a; font-family: Arial, sans-serif; }
+    .brand { color: #5145cd; font-weight: 800; }
+    .card { border: 0; border-radius: 16px; box-shadow: 0 5px 24px rgba(0,0,0,.06); }
+    .btn-primary { background: #5145cd; border-color: #5145cd; }
+    .btn-primary:hover { background: #4035ae; border-color: #4035ae; }
+    .form-control { padding: 11px; border-radius: 10px; }
+    .topbar { background: #fff; border-radius: 14px; padding: 14px 18px; box-shadow: 0 3px 15px rgba(0,0,0,.04); }
+    .hidden { display: none !important; }
+    #message { white-space: pre-wrap; }
+
+    /* Grid-only layout: every customer has an individual card. */
+    #recordsContainer.grid-view {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr));
+      gap: 16px;
+    }
+
+    .customer-card {
+      min-width: 0;
+      background: #fff;
+      border: 1px solid #ececf5;
+      border-radius: 15px;
+      padding: 18px;
+      box-shadow: 0 4px 16px rgba(30, 35, 80, .045);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .customer-name-block {
+      min-width: 0;
+      padding-bottom: 13px;
+      margin-bottom: 14px;
+      border-bottom: 1px solid #eeeef6;
+    }
+
+    .customer-label, .detail-label {
+      display: block;
+      color: #85879a;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+
+    .customer-name {
+      display: block;
+      color: #292d46;
+      font-size: 17px;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+
+    .customer-details {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 13px;
+      flex: 1;
+    }
+
+    .detail-value {
+      color: #34384f;
+      margin: 0;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+      line-height: 1.45;
+      font-size: 14px;
+    }
+
+    .detail-value.amount-value { color: #16834b; font-weight: 800; white-space: nowrap; }
+    .detail-value.date-value { white-space: normal; }
+
+    .money-order-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      margin-top: 17px;
+      padding: 10px 14px;
+      border: 1px solid #5145cd;
+      border-radius: 10px;
+      background: #5145cd;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .15s ease, border-color .15s ease;
+    }
+
+    .money-order-button:hover { background: #4035ae; border-color: #4035ae; }
+    .money-order-button:focus-visible { outline: 3px solid rgba(81,69,205,.25); outline-offset: 2px; }
+    .money-order-button svg { width: 17px; height: 17px; flex: 0 0 auto; }
+
+    @media (max-width: 576px) {
+      .topbar { padding: 12px; }
+      .topbar h5 { font-size: 16px; }
+      .card-body-mobile { padding: 14px !important; }
+      .customer-card { padding: 15px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container py-4">
+    <div class="topbar d-flex justify-content-between align-items-center gap-3 mb-4">
+      <div>
+        <h5 class="brand mb-1">PTMS</h5>
+        <small class="text-secondary">Parcel Tracking Management System — Parcel Viewer</small>
+      </div>
+      <div class="text-end">
+        <div id="connectionStatus" class="small text-secondary">Checking connection...</div>
+        <small id="accountLabel" class="text-secondary"></small>
+      </div>
+    </div>
+
+    <div id="message" class="alert hidden" role="alert"></div>
+    <div id="loadingAuth" class="text-center text-secondary py-4">Checking login...</div>
+
+    <section id="loginSection" class="row justify-content-center hidden">
+      <div class="col-12 col-md-7 col-lg-5">
+        <div class="card p-4 p-md-5">
+          <h4 class="text-center mb-4">Sign In to PTMS</h4>
+          <form id="loginForm">
+            <label for="email" class="form-label">Email Address</label>
+            <input id="email" type="email" class="form-control mb-3" autocomplete="username" required>
+            <label for="password" class="form-label">Password</label>
+            <input id="password" type="password" class="form-control mb-3" autocomplete="current-password" required>
+            <button id="loginButton" type="submit" class="btn btn-primary w-100">Sign In</button>
+          </form>
+          <small class="text-secondary mt-3">Use the same PTMS account used in the main parcel app.</small>
+        </div>
+      </div>
+    </section>
+
+    <section id="viewerSection" class="hidden">
+      <div class="card p-3 p-md-4">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
+          <div>
+            <h5 class="mb-1">Parcel List</h5>
+            <small class="text-secondary"><span id="parcelCount">0</span> customers</small>
+          </div>
+
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <button id="refreshButton" type="button" class="btn btn-outline-primary btn-sm">Refresh</button>
+            <button id="logoutButton" type="button" class="btn btn-outline-danger btn-sm">Logout</button>
+          </div>
+        </div>
+
+        <div id="loadingData" class="text-center text-secondary py-4">Loading parcels from Realtime Database...</div>
+        <div id="emptyState" class="alert alert-light text-center hidden">No parcel records found in this account.</div>
+        <div id="recordsContainer" class="grid-view hidden" aria-live="polite"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Same Firebase project and SDK as the main PTMS app -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script>
+    // Same Firebase client configuration used by your main PTMS app.
+    const firebaseConfig = {
+      apiKey: "AIzaSyDnK3cu3mPIdWErwdBgpgWkh-5cgxLWlAs",
+      authDomain: "parcel-tracking-bdc29.firebaseapp.com",
+      databaseURL: "https://parcel-tracking-bdc29-default-rtdb.firebaseio.com",
+      projectId: "parcel-tracking-bdc29",
+      storageBucket: "parcel-tracking-bdc29.firebasestorage.app",
+      messagingSenderId: "549068529289",
+      appId: "1:549068529289:web:c5f85a4e5834a85bfa3058",
+      measurementId: "G-MNPKPKNC6C"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.database();
+
+    const $ = (id) => document.getElementById(id);
+    let activeParcelRef = null;
+    let currentUser = null;
+    let currentParcels = [];
+
+    function showMessage(text, type = "danger") {
+      $("message").textContent = text;
+      $("message").className = `alert alert-${type}`;
+    }
+
+    function hideMessage() {
+      $("message").classList.add("hidden");
+    }
+
+    function authErrorText(error) {
+      const messages = {
+        "auth/invalid-email": "Please enter a valid email address.",
+        "auth/invalid-credential": "Incorrect email or password.",
+        "auth/user-not-found": "No account found with this email.",
+        "auth/wrong-password": "Incorrect email or password.",
+        "auth/too-many-requests": "Too many attempts. Please try again later.",
+        "auth/network-request-failed": "Network error. Check your internet connection."
+      };
+      return messages[error.code] || error.message || "Unable to sign in.";
+    }
+
+    function parseMoney(value) {
+      if (value === null || value === undefined || value === "") return null;
+      const raw = String(value).replace(/,/g, "").replace(/[^0-9.\-]/g, "");
+      if (!raw || raw === "." || raw === "-") return null;
+      const number = Number(raw);
+      return Number.isFinite(number) ? number : null;
+    }
+
+    // Match the main PTMS app: show the saved net amount after its recorded deduction.
+    function getDisplayedAmount(parcel) {
+      const gross = parseMoney(parcel.amount);
+      if (gross === null) return parcel.amount ? String(parcel.amount) : "—";
+
+      if (parcel.netAmount !== null && parcel.netAmount !== undefined && parcel.netAmount !== "") {
+        const net = parseMoney(parcel.netAmount);
+        return net === null ? String(parcel.netAmount) : formatRupees(net);
+      }
+
+      if (parcel.deductionApplied !== null && parcel.deductionApplied !== undefined && parcel.deductionApplied !== "") {
+        const deduction = Math.max(0, Number(parcel.deductionApplied) || 0);
+        return formatRupees(Math.max(0, gross - deduction));
+      }
+
+      // Older records without deduction fields are shown as originally entered.
+      return formatRupees(gross);
+    }
+
+    function formatRupees(value) {
+      return "Rs. " + Number(value).toLocaleString("en-PK", {
+        maximumFractionDigits: 2,
+        minimumFractionDigits: 0
+      });
+    }
+
+    function formatBookingDate(timestamp) {
+      const value = Number(timestamp);
+      if (!Number.isFinite(value) || value <= 0) return "—";
+      return new Date(value).toLocaleDateString("en-GB", {
+        day: "2-digit", month: "2-digit", year: "numeric"
+      });
+    }
+
+    function addDetail(parent, label, value, extraClass = "") {
+      const wrapper = document.createElement("div");
+      wrapper.className = `customer-detail ${extraClass}`.trim();
+
+      const heading = document.createElement("span");
+      heading.className = "detail-label";
+      heading.textContent = label;
+
+      const content = document.createElement("p");
+      content.className = "detail-value";
+      content.textContent = value;
+      if (label === "Amount") content.classList.add("amount-value");
+      if (label === "Booking Date") content.classList.add("date-value");
+
+      wrapper.append(heading, content);
+      parent.appendChild(wrapper);
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"
+      })[character]);
+    }
+
+    function printMoneyOrder(parcel) {
+      const customerName = parcel.customerName ? String(parcel.customerName) : "—";
+      const address = parcel.address ? String(parcel.address) : "—";
+      const amount = getDisplayedAmount(parcel);
+      const bookingDate = formatBookingDate(parcel.createdAt);
+
+      // The image must remain in the same folder as this HTML file.
+      const backgroundImageUrl = new URL("MoneyOrder-Front-Side.jpg", window.location.href).href;
+      const fallbackBackgroundImageUrl = new URL("MoneyOrder Front Side.jpg", window.location.href).href;
+
+      // Open the print window directly from the button click to avoid popup blockers.
+      const printWindow = window.open("", "_blank", "width=1100,height=800");
+      if (!printWindow) {
+        showMessage("Printing window was blocked. Please allow pop-ups for this site and try again.", "warning");
+        return;
+      }
+
+      const printHtml = `<!DOCTYPE html>
+<html lang="ur" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MoneyOrder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { width: 297mm; height: 210mm; margin: 0; padding: 0; }
+    body { font-family: "Noto Nastaliq Urdu", "Jameel Noori Nastaleeq", serif; color: #111; }
+    @page { size: A4 landscape; margin: 0; }
+
+    .print-page {
+      position: relative;
+      width: 297mm;
+      height: 210mm;
+      overflow: hidden;
+      background: #fff;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    /* Rotate the MoneyOrder background 90 degrees clockwise. */
+    .money-order-background {
+      position: absolute;
+      z-index: 0;
+      height: 297mm;
+      width: auto;
+      max-width: none;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%) rotate(90deg);
+      transform-origin: center center;
+    }
+
+    /*
+      Each information line has independent movement controls, all in pixels.
+      Positive RIGHT/DOWN moves right/down; positive LEFT/UP moves left/up.
+      Set these per field to align the print with your MoneyOrder paper.
+    */
+    :root {
+      --name-left: 0px;    --name-right: 0px;    --name-up: 0px;    --name-down: 0px;
+      --address-left: 0px; --address-right: 0px; --address-up: 0px; --address-down: 0px;
+      --amount-left: 0px;  --amount-right: 0px;  --amount-up: 0px;  --amount-down: 0px;
+      --date-left: 0px;    --date-right: 0px;    --date-up: 0px;    --date-down: 0px;
+    }
+
+    /* Customer data is transparent, has no labels, and follows the same rotation. */
+    .customer-print-details {
+      position: absolute;
+      z-index: 1;
+      left: 50%;
+      top: 33%;
+      width: 115mm;
+      margin: 0;
+      padding: 0;
+      color: #000000;
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      direction: rtl;
+      text-align: right;
+      transform: translate(-50%, -50%) rotate(90deg);
+      transform-origin: center center;
+    }
+
+    /*
+      Absolute positioning fixes every printed field to its own pixel anchor.
+      The LEFT/RIGHT and UP/DOWN variables now move each field independently.
+      Since the whole information group is rotated 90deg, these offsets apply
+      in the group's local coordinate system.
+    */
+    .field {
+      position: absolute;
+      left: 0;
+      width: max-content;
+      max-width: 115mm;
+      margin: 0;
+      padding: 0;
+    }
+    .value {
+      margin: 0;
+      min-height: 6mm;
+      font-family: "Noto Nastaliq Urdu", "Jameel Noori Nastaleeq", serif;
+      font-size: 11pt;
+      line-height: 1.9;
+      font-weight: 600;
+      direction: rtl;
+      text-align: right;
+      unicode-bidi: plaintext;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+      background: transparent;
+      color: #000000;
+    }
+    .name-value {
+      top: calc(-10px + var(--name-down) - var(--name-up));
+      left: calc(376px + var(--name-right) - var(--name-left));
+    }
+    .address-value {
+      top: calc(43px + var(--address-down) - var(--address-up));
+      left: calc(230px + var(--address-right) - var(--address-left));
+    }
+    .amount-value {
+      top: calc(-200px + var(--amount-down) - var(--amount-up));
+      left: calc(376px + var(--amount-right) - var(--amount-left));
+    }
+    .date-value {
+      top: calc(128px + var(--date-down) - var(--date-up));
+      left: calc(436px + var(--date-right) - var(--date-left));
+    }
+
+    @media screen {
+      body { background: #e8e8ed; }
+      .print-page { margin: 12px auto; box-shadow: 0 2px 18px rgba(0,0,0,.18); }
+    }
+
+    @media print {
+      html, body { width: 297mm; height: 210mm; }
+      .print-page { margin: 0; }
+    }
+  </style>
+</head>
+<body>
+  <main class="print-page">
+    <img id="moneyOrderBackground" class="money-order-background" src="${escapeHtml(backgroundImageUrl)}" onerror="this.onerror=null;this.src='${escapeHtml(fallbackBackgroundImageUrl)}';" alt="">
+
+    <section class="customer-print-details">
+      <div class="field value name-value">${escapeHtml(customerName)}</div>
+      <div class="field value address-value">${escapeHtml(address)}</div>
+      <div class="field value amount-value" dir="auto">${escapeHtml(amount)}</div>
+      <div class="field value date-value" dir="ltr">${escapeHtml(bookingDate)}</div>
+    </section>
+  </main>
+  <script>
+    window.addEventListener("load", function () {
+      const background = document.getElementById("moneyOrderBackground");
+      if (!background || !background.complete || background.naturalWidth === 0) {
+        alert("MoneyOrder-Front-Side.jpg was not found. Keep the MoneyOrder image in the same folder as the PTMS HTML file.");
+        return;
+      }
+      const readyForUrduFont = document.fonts && document.fonts.ready
+        ? document.fonts.ready
+        : Promise.resolve();
+      readyForUrduFont.then(function () {
+        window.focus();
+        setTimeout(function () { window.print(); }, 250);
+      });
+    });
+  <\/script>
+</body>
+</html>`;
+
+      printWindow.document.open();
+      printWindow.document.write(printHtml);
+      printWindow.document.close();
+      hideMessage();
+    }
+
+    function createCustomerCard(parcel) {
+      const card = document.createElement("article");
+      card.className = "customer-card";
+
+      const nameBlock = document.createElement("div");
+      nameBlock.className = "customer-name-block";
+
+      const nameLabel = document.createElement("span");
+      nameLabel.className = "customer-label";
+      nameLabel.textContent = "Customer";
+
+      const name = document.createElement("strong");
+      name.className = "customer-name";
+      name.dir = "auto";
+      name.textContent = parcel.customerName || "—";
+      nameBlock.append(nameLabel, name);
+
+      const details = document.createElement("div");
+      details.className = "customer-details";
+      addDetail(details, "Address", parcel.address ? String(parcel.address) : "—", "address-detail");
+      addDetail(details, "Amount", getDisplayedAmount(parcel));
+      addDetail(details, "Booking Date", formatBookingDate(parcel.createdAt));
+
+      const moneyOrderButton = document.createElement("button");
+      moneyOrderButton.type = "button";
+      moneyOrderButton.className = "money-order-button";
+      moneyOrderButton.title = "Print MoneyOrder for " + (parcel.customerName || "this customer");
+      moneyOrderButton.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M6 3h9l4 4v14H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"></path>
+          <path d="M14 3v5h5M8 12h8M8 16h5"></path>
+          <path d="M8 8h2"></path>
+        </svg>
+        <span>MoneyOrder</span>`;
+      moneyOrderButton.addEventListener("click", () => printMoneyOrder(parcel));
+
+      card.append(nameBlock, details, moneyOrderButton);
+      return card;
+    }
+
+    function renderParcels() {
+      const container = $("recordsContainer");
+      container.replaceChildren();
+      container.classList.add("grid-view");
+
+      const fragment = document.createDocumentFragment();
+      currentParcels.forEach((parcel) => fragment.appendChild(createCustomerCard(parcel)));
+      container.appendChild(fragment);
+
+      $("parcelCount").textContent = String(currentParcels.length);
+      $("loadingData").classList.add("hidden");
+      $("emptyState").classList.toggle("hidden", currentParcels.length !== 0);
+      container.classList.toggle("hidden", currentParcels.length === 0);
+    }
+
+    function clearParcelListener() {
+      if (activeParcelRef) {
+        activeParcelRef.off("value");
+        activeParcelRef = null;
+      }
+    }
+
+    function loadParcels(uid) {
+      clearParcelListener();
+      $("loadingData").classList.remove("hidden");
+      $("emptyState").classList.add("hidden");
+      $("recordsContainer").classList.add("hidden");
+      $("recordsContainer").replaceChildren();
+      currentParcels = [];
+
+      // Main app stores each user's parcels at: users/{uid}/parcels
+      activeParcelRef = db.ref(`users/${uid}/parcels`);
+      activeParcelRef.on("value", (snapshot) => {
+        if (!currentUser || currentUser.uid !== uid) return;
+
+        const records = snapshot.val() || {};
+        currentParcels = Object.entries(records).map(([id, parcel]) => ({
+          id,
+          ...(parcel || {})
+        }));
+
+        // Newest booking date first.
+        currentParcels.sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
+        renderParcels();
+        $("connectionStatus").textContent = "Realtime Database connected";
+      }, (error) => {
+        $("loadingData").classList.add("hidden");
+        $("connectionStatus").textContent = "Database error";
+        showMessage(
+          error.code === "PERMISSION_DENIED"
+            ? "Database permission denied. Sign in with the PTMS account that owns these parcels and check your Realtime Database rules."
+            : (error.message || "Could not load parcel data."),
+          "danger"
+        );
+      });
+    }
+
+    $("loginForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      hideMessage();
+      $("loginButton").disabled = true;
+      $("loginButton").textContent = "Signing in...";
+      try {
+        await auth.signInWithEmailAndPassword($("email").value.trim(), $("password").value);
+      } catch (error) {
+        showMessage(authErrorText(error));
+      } finally {
+        $("loginButton").disabled = false;
+        $("loginButton").textContent = "Sign In";
+      }
+    });
+
+    $("logoutButton").addEventListener("click", async () => {
+      clearParcelListener();
+      await auth.signOut();
+    });
+
+    $("refreshButton").addEventListener("click", () => {
+      if (currentUser) loadParcels(currentUser.uid);
+    });
+
+
+    auth.onAuthStateChanged((user) => {
+      currentUser = user;
+      $("loadingAuth").classList.add("hidden");
+      hideMessage();
+
+      if (!user) {
+        clearParcelListener();
+        currentParcels = [];
+        $("viewerSection").classList.add("hidden");
+        $("loginSection").classList.remove("hidden");
+        $("accountLabel").textContent = "";
+        $("connectionStatus").textContent = navigator.onLine ? "Ready to sign in" : "Offline";
+        return;
+      }
+
+      $("loginSection").classList.add("hidden");
+      $("viewerSection").classList.remove("hidden");
+      $("accountLabel").textContent = user.email || "Signed in";
+      loadParcels(user.uid);
+    });
+
+    window.addEventListener("online", () => {
+      $("connectionStatus").textContent = "Online";
+      if (currentUser) loadParcels(currentUser.uid);
+    });
+    window.addEventListener("offline", () => {
+      $("connectionStatus").textContent = "Offline — waiting for connection";
+    });
+
+  </script>
+</body>
+</html>

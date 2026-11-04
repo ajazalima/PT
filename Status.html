@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PTMS Automatic Status Check</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body { background: #f3f5fb; color: #20243a; font-family: Arial, sans-serif; margin:0; }
+    .container-fluid { width:100%; max-width:none; margin:0; padding-left:0 !important; padding-right:0 !important; }
+    .topbar { border-radius:0; margin-bottom:0 !important; }
+    #viewerSection > .card { border-radius:0; padding:12px !important; }
+    .status-page-title { width:100%; text-align:center; font-weight:800; color:#292d46; margin:0; }
+    .viewer-toolbar { position:relative; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+    .viewer-toolbar .status-page-title { position:absolute; left:50%; transform:translateX(-50%); width:auto; }
+    .viewer-toolbar .bulk-status-toggle { margin-left:auto; }
+    .brand { color: #5145cd; font-weight: 800; }
+    .card { border: 0; border-radius: 16px; box-shadow: 0 5px 24px rgba(0,0,0,.06); }
+    .btn-primary { background: #5145cd; border-color: #5145cd; }
+    .btn-primary:hover { background: #4035ae; border-color: #4035ae; }
+    .form-control { padding: 11px; border-radius: 10px; }
+    .topbar { background: #fff; border-radius: 14px; padding: 14px 18px; box-shadow: 0 3px 15px rgba(0,0,0,.04); }
+    .hidden { display: none !important; }
+    #message { white-space: pre-wrap; }
+
+    /* Full-width list layout: tracking results expand inside each record. */
+    #recordsContainer.list-view { display: flex; flex-direction: column; gap: 16px; }
+
+    .customer-card {
+      min-width: 0;
+      background: #fff;
+      border: 1px solid #ececf5;
+      border-radius: 15px;
+      padding: 18px;
+      box-shadow: 0 4px 16px rgba(30, 35, 80, .045);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .customer-name-block {
+      min-width: 0;
+      padding-bottom: 13px;
+      margin-bottom: 14px;
+      border-bottom: 1px solid #eeeef6;
+    }
+
+    .customer-label, .detail-label {
+      display: block;
+      color: #85879a;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+
+    .customer-name {
+      display: block;
+      color: #d00000;
+      font-family: "Jameel Noori Nastaleeq", "Noto Nastaliq Urdu", serif;
+      font-size: 25px;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+
+    .customer-details {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 13px;
+      flex: 1;
+    }
+
+    .detail-value {
+      color: #34384f;
+      font-family: "Jameel Noori Nastaleeq", "Noto Nastaliq Urdu", serif;
+      margin: 0;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+      line-height: 1.45;
+      font-size: 14px;
+    }
+
+    .detail-value.amount-value { color: #16834b; font-weight: 800; white-space: nowrap; }
+    .detail-value.date-value { white-space: normal; }
+
+    .status-radio-toggle, .bulk-status-toggle { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .status-radio-toggle { margin-top:16px; padding:10px 12px; border:1px solid #e5e3f7; border-radius:10px; }
+    .status-radio-toggle .toggle-title, .bulk-status-toggle .toggle-title { font-size:12px; font-weight:800; color:#51536a; }
+    .status-radio-toggle label, .bulk-status-toggle label { display:inline-flex; align-items:center; gap:5px; font-size:13px; font-weight:700; cursor:pointer; }
+    .status-radio-toggle input, .bulk-status-toggle input { accent-color:#16834b; width:17px; height:17px; }
+    .status-radio-toggle .on-label, .bulk-status-toggle .on-label { color:#16834b; }
+    .status-radio-toggle .off-label, .bulk-status-toggle .off-label { color:#6b6d7e; }
+
+    .tracking-id-value { color: #5145cd; font-weight: 800; letter-spacing: .02em; }
+    .status-result-panel {
+      min-width: 0;
+      width: 100%;
+      margin-top: 13px;
+      padding: 12px;
+      border: 1px solid #e5e3f7;
+      border-radius: 12px;
+      background: #fafaff;
+    }
+    .status-result-heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 9px;
+      color: #292d46;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .status-latest-result {
+      border: 1px solid #e4e5ee;
+      border-radius: 8px;
+      background: #fff;
+      overflow: hidden;
+    }
+    .status-latest-date {
+      padding: 10px 12px;
+      border-bottom: 1px solid #e4e5ee;
+      color: #c43b3b;
+      font-size: 15px;
+      font-weight: 800;
+    }
+    .status-event-row {
+      display: grid;
+      grid-template-columns: minmax(66px, 76px) minmax(0, .8fr) minmax(0, 1.8fr);
+      gap: 10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid #f0f0f3;
+      color: #34384f;
+      font-size: 13px;
+      line-height: 1.45;
+      min-width: 0;
+    }
+    .status-event-row:last-child { border-bottom: 0; }
+    .status-event-time { white-space: nowrap; }
+    .status-event-office { font-weight: 700; overflow-wrap: anywhere; }
+    .status-event-detail { overflow-wrap: anywhere; }
+    .status-event-text {
+      padding: 10px 12px;
+      color: #34384f;
+      font-size: 13px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    @media (max-width: 420px) {
+      .status-event-row {
+        grid-template-columns: 1fr;
+        gap: 3px;
+      }
+    }
+    .status-full-page-button {
+      margin-top: 9px;
+      padding: 7px 11px;
+      border: 1px solid #5145cd;
+      border-radius: 8px;
+      color: #5145cd;
+      background: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .status-full-page-button:hover { color: #fff; background: #5145cd; }
+    .status-note { margin: 0 0 9px; color: #77798c; font-size: 11px; line-height: 1.45; }
+    .status-refresh-meta { margin: 0 0 9px; color: #16834b; font-size: 11px; font-weight: 700; overflow-wrap: anywhere; }
+    .status-error { margin-top: 10px; color: #b42318; font-size: 12px; }
+
+    @media (max-width: 576px) {
+      .topbar { padding: 10px 12px; flex-wrap: wrap; }
+      .topbar h5 { font-size: 16px; }
+      #viewerSection > .card { padding:8px !important; }
+      .viewer-toolbar { justify-content:center; }
+      .viewer-toolbar .status-page-title { position:static; transform:none; order:-1; width:100%; }
+      .viewer-toolbar .bulk-status-toggle { margin-left:0; }
+
+      .card-body-mobile { padding: 14px !important; }
+      .customer-card { padding: 15px; }
+      .status-result-panel { padding: 10px; }
+      .status-event-row { grid-template-columns: 1fr; gap: 3px; padding: 9px 10px; }
+      .status-event-time { font-weight: 700; }
+      .status-event-office, .status-event-detail { min-width: 0; }
+      .status-full-page-button { width: 100%; min-height: 42px; }
+      .bulk-status-toggle { width:100%; padding:10px; background:#f8f8fc; border-radius:10px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container-fluid py-0">
+    <div class="topbar d-flex justify-content-between align-items-center gap-3">
+      <div><h5 class="brand mb-0">PTMS</h5></div>
+      <!-- Required Firebase auth/database status elements (kept visually compact). -->
+      <div class="text-end small">
+        <span id="connectionStatus" class="text-secondary">Checking connection...</span>
+        <span id="accountLabel" class="text-secondary ms-2"></span>
+      </div>
+    </div>
+
+    <div id="message" class="alert hidden" role="alert"></div>
+    <div id="loadingAuth" class="text-center text-secondary py-4">Checking login...</div>
+
+    <section id="loginSection" class="row justify-content-center hidden">
+      <div class="col-12 col-md-7 col-lg-5">
+        <div class="card p-4 p-md-5">
+          <h4 class="text-center mb-4">Sign In to PTMS</h4>
+          <form id="loginForm">
+            <label for="email" class="form-label">Email Address</label>
+            <input id="email" type="email" class="form-control mb-3" autocomplete="username" required>
+            <label for="password" class="form-label">Password</label>
+            <input id="password" type="password" class="form-control mb-3" autocomplete="current-password" required>
+            <button id="loginButton" type="submit" class="btn btn-primary w-100">Sign In</button>
+          </form>
+          <small class="text-secondary mt-3">Use the same PTMS account used in the main parcel app.</small>
+        </div>
+      </div>
+    </section>
+
+    <section id="viewerSection" class="hidden">
+      <div class="card p-3 p-md-4">
+        <div class="viewer-toolbar mb-3">
+          <div>
+            <small class="text-secondary"><span id="parcelCount">0</span> customers</small>
+          </div>
+          <h4 class="status-page-title">Status</h4>
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <button id="refreshButton" type="button" class="btn btn-outline-primary btn-sm">Refresh</button>
+            <div class="bulk-status-toggle" role="group" aria-label="Turn all status checks on or off">
+              <span class="toggle-title">All Status:</span>
+              <label class="on-label"><input type="radio" name="allStatusToggle" value="on" id="allStatusOn" checked> ON</label>
+              <label class="off-label"><input type="radio" name="allStatusToggle" value="off" id="allStatusOff"> OFF</label>
+            </div>
+          </div>
+        </div>
+
+        <div id="loadingData" class="text-center text-secondary py-4">Loading parcels from Realtime Database...</div>
+        <div id="emptyState" class="alert alert-light text-center hidden">No parcel records found in this account.</div>
+        <div id="recordsContainer" class="grid-view hidden" aria-live="polite"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Same Firebase project and SDK as the main PTMS app -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script>
+    // Same Firebase client configuration used by your main PTMS app.
+    const firebaseConfig = {
+      apiKey: "AIzaSyDnK3cu3mPIdWErwdBgpgWkh-5cgxLWlAs",
+      authDomain: "parcel-tracking-bdc29.firebaseapp.com",
+      databaseURL: "https://parcel-tracking-bdc29-default-rtdb.firebaseio.com",
+      projectId: "parcel-tracking-bdc29",
+      storageBucket: "parcel-tracking-bdc29.firebasestorage.app",
+      messagingSenderId: "549068529289",
+      appId: "1:549068529289:web:c5f85a4e5834a85bfa3058",
+      measurementId: "G-MNPKPKNC6C"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.database();
+
+    // No Firebase Cloud Function: load the official Pakistan Post page directly.
+    // Cross-origin browser rules prevent extracting only the newest dated entries.
+    const STATUS_REFRESH_INTERVAL_MS = 30 * 1000;
+
+    const $ = (id) => document.getElementById(id);
+    let activeParcelRef = null;
+    let currentUser = null;
+    let currentParcels = [];
+    const activeStatusChecks = new Map();
+
+    function showMessage(text, type = "danger") {
+      $("message").textContent = text;
+      $("message").className = `alert alert-${type}`;
+    }
+
+    function hideMessage() {
+      $("message").classList.add("hidden");
+    }
+
+    function authErrorText(error) {
+      const messages = {
+        "auth/invalid-email": "Please enter a valid email address.",
+        "auth/invalid-credential": "Incorrect email or password.",
+        "auth/user-not-found": "No account found with this email.",
+        "auth/wrong-password": "Incorrect email or password.",
+        "auth/too-many-requests": "Too many attempts. Please try again later.",
+        "auth/network-request-failed": "Network error. Check your internet connection."
+      };
+      return messages[error.code] || error.message || "Unable to sign in.";
+    }
+
+    function parseMoney(value) {
+      if (value === null || value === undefined || value === "") return null;
+      const raw = String(value).replace(/,/g, "").replace(/[^0-9.\-]/g, "");
+      if (!raw || raw === "." || raw === "-") return null;
+      const number = Number(raw);
+      return Number.isFinite(number) ? number : null;
+    }
+
+    // Match the main PTMS app: show the saved net amount after its recorded deduction.
+    function getDisplayedAmount(parcel) {
+      const gross = parseMoney(parcel.amount);
+      if (gross === null) return parcel.amount ? String(parcel.amount) : "—";
+
+      if (parcel.netAmount !== null && parcel.netAmount !== undefined && parcel.netAmount !== "") {
+        const net = parseMoney(parcel.netAmount);
+        return net === null ? String(parcel.netAmount) : formatRupees(net);
+      }
+
+      if (parcel.deductionApplied !== null && parcel.deductionApplied !== undefined && parcel.deductionApplied !== "") {
+        const deduction = Math.max(0, Number(parcel.deductionApplied) || 0);
+        return formatRupees(Math.max(0, gross - deduction));
+      }
+
+      // Older records without deduction fields are shown as originally entered.
+      return formatRupees(gross);
+    }
+
+    function formatRupees(value) {
+      return "Rs. " + Number(value).toLocaleString("en-PK", {
+        maximumFractionDigits: 2,
+        minimumFractionDigits: 0
+      });
+    }
+
+    function formatBookingDate(timestamp) {
+      const value = Number(timestamp);
+      if (!Number.isFinite(value) || value <= 0) return "—";
+      return new Date(value).toLocaleDateString("en-GB", {
+        day: "2-digit", month: "2-digit", year: "numeric"
+      });
+    }
+
+    function addDetail(parent, label, value, extraClass = "") {
+      const wrapper = document.createElement("div");
+      wrapper.className = `customer-detail ${extraClass}`.trim();
+
+      const heading = document.createElement("span");
+      heading.className = "detail-label";
+      heading.textContent = label;
+
+      const content = document.createElement("p");
+      content.className = "detail-value";
+      content.textContent = value;
+      if (label === "Amount") content.classList.add("amount-value");
+      if (label === "Booking Date") content.classList.add("date-value");
+
+      wrapper.append(heading, content);
+      parent.appendChild(wrapper);
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"
+      })[character]);
+    }
+
+    // Accept common tracking field names used by PTMS parcel records.
+    // The Firebase record key (parcel.id) is intentionally not used as a tracking number.
+    function getTrackingId(parcel) {
+      const keys = [
+        "trackingId", "trackingID", "trackingNumber", "trackingNo", "tracking_no",
+        "articleNo", "articleNumber", "articleId", "ArticleIDz",
+        "vppNumber", "vppNo", "vpp", "VPP", "consignmentNo",
+        "consignmentNumber", "postTrackingId", "trackingCode", "cnNumber", "tracking"
+      ];
+
+      for (const key of keys) {
+        const value = parcel && parcel[key];
+        if (value === null || value === undefined || value === "") continue;
+        if (typeof value === "object") {
+          const nested = value.number || value.id || value.value || value.code;
+          if (nested !== null && nested !== undefined && String(nested).trim()) {
+            return String(nested).trim();
+          }
+          continue;
+        }
+        const text = String(value).trim();
+        if (text) return text;
+      }
+      return "";
+    }
+
+    // Official Pakistan Post EMTTS result page. ArticleIDz is the portal's query parameter.
+    function getOfficialStatusUrl(trackingId) {
+      return "https://ep.gov.pk/emtts/EPTrack_Live.aspx?ArticleIDz=" + encodeURIComponent(trackingId);
+    }
+
+    function openFullStatusPage(trackingId) {
+      const url = getOfficialStatusUrl(trackingId);
+      const popupName = "PakistanPostStatus_" + trackingId.replace(/[^a-z0-9]/gi, "_");
+      const statusWindow = window.open(
+        url,
+        popupName,
+        "popup=yes,width=1100,height=850,resizable=yes,scrollbars=yes"
+      );
+      if (!statusWindow) {
+        showMessage("Popup was blocked. Please allow pop-ups for this site and try again.", "warning");
+      } else {
+        statusWindow.focus();
+        hideMessage();
+      }
+    }
+
+    function renderLatestStatusGroup(result, target) {
+      target.replaceChildren();
+      const dateHeading = document.createElement("div");
+      dateHeading.className = "status-latest-date";
+      dateHeading.textContent = result.date;
+      target.appendChild(dateHeading);
+
+      result.entries.forEach((entry) => {
+        const row = document.createElement("div");
+        row.className = "status-event-row";
+        if (entry.length >= 3) {
+          const time = document.createElement("span");
+          time.className = "status-event-time";
+          time.textContent = entry[0];
+          const office = document.createElement("span");
+          office.className = "status-event-office";
+          office.textContent = entry[1];
+          const detail = document.createElement("span");
+          detail.className = "status-event-detail";
+          detail.textContent = entry.slice(2).join(" — ");
+          row.append(time, office, detail);
+        } else {
+          const text = document.createElement("div");
+          text.className = "status-event-text";
+          text.textContent = entry.join(" ");
+          row.appendChild(text);
+        }
+        target.appendChild(row);
+      });
+    }
+
+    function setStatusToggleButton(button, isOn) {
+      const onRadio = button.querySelector('input[value="on"]');
+      const offRadio = button.querySelector('input[value="off"]');
+      if (onRadio) onRadio.checked = isOn;
+      if (offRadio) offRadio.checked = !isOn;
+      button.dataset.state = isOn ? "on" : "off";
+    }
+
+    function showStatusPanelMessage(state, message, isError = false) {
+      if (!state.resultBox) return;
+      state.resultBox.replaceChildren();
+      const paragraph = document.createElement("p");
+      paragraph.className = isError ? "status-error status-event-text" : "status-event-text";
+      paragraph.textContent = message;
+      state.resultBox.appendChild(paragraph);
+    }
+
+    function updateStatusMeta(state, suffix = "") {
+      if (!state.meta) return;
+      const intervalText = "Refresh in: " + (state.countdown ?? 30) + "s";
+      const updatedText = state.lastUpdated
+        ? "Last checked: " + state.lastUpdated.toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+        : "Waiting for first result";
+      state.meta.textContent = "ON · " + updatedText + " · " + intervalText + (suffix ? " · " + suffix : "");
+    }
+
+    function attachStatusPanel(parcel, card, button, state) {
+      const trackingId = state.trackingId;
+      const panel = document.createElement("section");
+      panel.className = "status-result-panel";
+      panel.setAttribute("aria-label", "Automatically refreshed latest Pakistan Post tracking result");
+
+      const heading = document.createElement("div");
+      heading.className = "status-result-heading";
+      heading.textContent = "Latest Date Result — " + (trackingId || "Tracking ID missing");
+
+      const meta = document.createElement("p");
+      meta.className = "status-refresh-meta";
+
+      const resultBox = document.createElement("div");
+      resultBox.className = "status-latest-result status-official-frame-wrap";
+      const officialFrame = document.createElement("iframe");
+      officialFrame.className = "status-official-frame";
+      officialFrame.title = "Pakistan Post official tracking result";
+      officialFrame.loading = "lazy";
+      officialFrame.style.width = "100%";
+      officialFrame.style.height = "30vh";
+      officialFrame.style.minHeight = "240px";
+      officialFrame.style.border = "0";
+      officialFrame.style.background = "#fff";
+      officialFrame.src = trackingId ? getOfficialStatusUrl(trackingId) : "about:blank";
+      resultBox.appendChild(officialFrame);
+
+      const fullPageButton = document.createElement("button");
+      fullPageButton.type = "button";
+      fullPageButton.className = "status-full-page-button";
+      fullPageButton.textContent = "Open Full Page in Popup";
+      fullPageButton.addEventListener("click", () => {
+        if (trackingId) openFullStatusPage(trackingId);
+      });
+      fullPageButton.disabled = !trackingId;
+
+      panel.append(heading, meta, resultBox, fullPageButton);
+      card.appendChild(panel);
+
+      state.panel = panel;
+      state.heading = heading;
+      state.meta = meta;
+      state.resultBox = resultBox;
+      state.button = button;
+      updateStatusMeta(state);
+
+      if (!trackingId) {
+        showStatusPanelMessage(state, "Tracking ID is not saved in this parcel record. Add the Tracking ID in Firebase to start automatic checking.", true);
+      }
+    }
+
+    async function refreshStatusMonitor(parcel, state) {
+      if (!state.isOn || state.requestInProgress || !state.trackingId || !state.resultBox) return;
+      if (!currentUser) {
+        state.lastError = "Please sign in to PTMS again.";
+        showStatusPanelMessage(state, state.lastError, true);
+        return;
+      }
+      state.requestInProgress = true;
+      try {
+        if (!state.isOn || activeStatusChecks.get(String(parcel.id)) !== state) return;
+        const frame = state.resultBox.querySelector("iframe");
+        if (frame) frame.src = getOfficialStatusUrl(state.trackingId);
+        state.lastUpdated = new Date();
+        updateStatusMeta(state);
+      } catch (error) {
+        if (!state.isOn || activeStatusChecks.get(String(parcel.id)) !== state) return;
+        state.lastError = error && error.message ? error.message : "Could not refresh the tracking page.";
+        showStatusPanelMessage(state, state.lastError, true);
+        updateStatusMeta(state, "retrying on next check");
+      } finally {
+        state.requestInProgress = false;
+      }
+    }
+
+    function stopStatusMonitor(parcelId) {
+      const key = String(parcelId);
+      const state = activeStatusChecks.get(key);
+      if (!state) return;
+      state.isOn = false;
+      if (state.timer) clearInterval(state.timer);
+      if (state.controller) state.controller.abort();
+      if (state.panel) state.panel.remove();
+      if (state.button && state.button.isConnected) setStatusToggleButton(state.button, false);
+      activeStatusChecks.delete(key);
+    }
+
+    function startStatusMonitor(parcel, card, button) {
+      const key = String(parcel.id);
+      const trackingId = getTrackingId(parcel);
+      const state = {
+        isOn: true,
+        trackingId,
+        timer: null,
+        controller: null,
+        requestInProgress: false,
+        panel: null,
+        heading: null,
+        meta: null,
+        resultBox: null,
+        button,
+        lastResult: null,
+        lastError: "",
+        lastUpdated: null,
+        countdown: 30
+      };
+
+      activeStatusChecks.set(key, state);
+      setStatusToggleButton(button, true);
+      attachStatusPanel(parcel, card, button, state);
+
+      if (!trackingId) return;
+      void refreshStatusMonitor(parcel, state);
+      state.timer = setInterval(() => {
+        if (!state.isOn) return;
+        state.countdown = Math.max(0, (state.countdown ?? 30) - 1);
+        updateStatusMeta(state);
+        if (state.countdown <= 0) {
+          state.countdown = 30;
+          void refreshStatusMonitor(parcel, state);
+        }
+      }, 1000);
+    }
+
+    function toggleStatusMonitor(parcel, card, button, turnOn) {
+      const key = String(parcel.id);
+      const shouldTurnOn = typeof turnOn === "boolean" ? turnOn : !activeStatusChecks.has(key);
+      if (shouldTurnOn && !activeStatusChecks.has(key)) startStatusMonitor(parcel, card, button);
+      else if (!shouldTurnOn && activeStatusChecks.has(key)) stopStatusMonitor(key);
+      setStatusToggleButton(button, shouldTurnOn);
+      syncBulkStatusRadios();
+    }
+
+    function syncBulkStatusRadios() {
+      const total = currentParcels.length;
+      const onCount = currentParcels.filter(p => activeStatusChecks.has(String(p.id))).length;
+      $("allStatusOn").checked = total > 0 && onCount === total;
+      $("allStatusOff").checked = onCount === 0;
+    }
+
+    function setAllStatusMonitors(turnOn) {
+      currentParcels.forEach((parcel) => {
+        const card = document.querySelector(`[data-parcel-id="${CSS.escape(String(parcel.id))}"]`);
+        const controls = card && card.querySelector(".status-radio-toggle");
+        if (!card || !controls) return;
+        if (turnOn && !activeStatusChecks.has(String(parcel.id))) startStatusMonitor(parcel, card, controls);
+        if (!turnOn && activeStatusChecks.has(String(parcel.id))) stopStatusMonitor(parcel.id);
+        setStatusToggleButton(controls, turnOn);
+      });
+      syncBulkStatusRadios();
+    }
+
+    function stopAllStatusMonitors() {
+      Array.from(activeStatusChecks.keys()).forEach(stopStatusMonitor);
+    }
+
+    function createCustomerCard(parcel) {
+      const card = document.createElement("article");
+      card.className = "customer-card";
+      card.dataset.parcelId = String(parcel.id);
+
+      const nameBlock = document.createElement("div");
+      nameBlock.className = "customer-name-block";
+
+      const nameLabel = document.createElement("span");
+      nameLabel.className = "customer-label";
+      nameLabel.textContent = "Customer";
+
+      const name = document.createElement("strong");
+      name.className = "customer-name";
+      name.dir = "auto";
+      name.textContent = parcel.customerName || "—";
+      nameBlock.append(nameLabel, name);
+
+      const details = document.createElement("div");
+      details.className = "customer-details";
+      addDetail(details, "Address", parcel.address ? String(parcel.address) : "—", "address-detail");
+      addDetail(details, "Amount", getDisplayedAmount(parcel));
+      addDetail(details, "Booking Date", formatBookingDate(parcel.createdAt));
+      addDetail(details, "Tracking ID", getTrackingId(parcel) || "Not saved", "tracking-id-detail");
+      const trackingValue = details.querySelector(".tracking-id-detail .detail-value");
+      if (trackingValue) trackingValue.classList.add("tracking-id-value");
+
+      const statusButton = document.createElement("div");
+      statusButton.className = "status-radio-toggle";
+      statusButton.setAttribute("role", "group");
+      statusButton.setAttribute("aria-label", "Status check for " + (parcel.customerName || "this customer"));
+      const groupName = "statusToggle_" + String(parcel.id).replace(/[^a-zA-Z0-9_-]/g, "_");
+      statusButton.innerHTML = `<span class="toggle-title">Automatic Status:</span>
+        <label class="on-label"><input type="radio" name="${groupName}" value="on"> ON</label>
+        <label class="off-label"><input type="radio" name="${groupName}" value="off" checked> OFF</label>`;
+      statusButton.querySelectorAll("input").forEach((radio) => radio.addEventListener("change", () => {
+        if (radio.checked) toggleStatusMonitor(parcel, card, statusButton, radio.value === "on");
+      }));
+
+      card.append(nameBlock, details, statusButton);
+      const existingMonitor = activeStatusChecks.get(String(parcel.id));
+      if (existingMonitor) {
+        setStatusToggleButton(statusButton, true);
+        attachStatusPanel(parcel, card, statusButton, existingMonitor);
+      }
+      return card;
+    }
+
+    function renderParcels() {
+      const container = $("recordsContainer");
+      container.replaceChildren();
+      container.classList.add("list-view");
+      container.classList.remove("grid-view");
+
+      const currentIds = new Set(currentParcels.map(parcel => String(parcel.id)));
+      Array.from(activeStatusChecks.keys()).forEach(id => {
+        if (!currentIds.has(String(id))) stopStatusMonitor(id);
+      });
+
+      const fragment = document.createDocumentFragment();
+      currentParcels.forEach((parcel) => fragment.appendChild(createCustomerCard(parcel)));
+      container.appendChild(fragment);
+
+      $("parcelCount").textContent = String(currentParcels.length);
+      $("loadingData").classList.add("hidden");
+      $("emptyState").classList.toggle("hidden", currentParcels.length !== 0);
+      container.classList.toggle("hidden", currentParcels.length === 0);
+      setAllStatusMonitors(true);
+    }
+
+    function clearParcelListener() {
+      if (activeParcelRef) {
+        activeParcelRef.off("value");
+        activeParcelRef = null;
+      }
+    }
+
+    function loadParcels(uid) {
+      clearParcelListener();
+      $("loadingData").classList.remove("hidden");
+      $("emptyState").classList.add("hidden");
+      $("recordsContainer").classList.add("hidden");
+      $("recordsContainer").replaceChildren();
+      currentParcels = [];
+
+      // Main app stores each user's parcels at: users/{uid}/parcels
+      activeParcelRef = db.ref(`users/${uid}/parcels`);
+      activeParcelRef.on("value", (snapshot) => {
+        if (!currentUser || currentUser.uid !== uid) return;
+
+        const records = snapshot.val() || {};
+        currentParcels = Object.entries(records).map(([id, parcel]) => ({
+          id,
+          ...(parcel || {})
+        }));
+
+        // Newest booking date first.
+        currentParcels.sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
+        try {
+          renderParcels();
+          $("connectionStatus").textContent = "Realtime Database connected";
+        } catch (renderError) {
+          console.error("PTMS parcel rendering failed:", renderError);
+          $("loadingData").classList.add("hidden");
+          $("connectionStatus").textContent = "Display error";
+          showMessage(
+            "Parcel records were received from Firebase, but could not be displayed: " +
+            (renderError && renderError.message ? renderError.message : "Unknown display error"),
+            "danger"
+          );
+        }
+      }, (error) => {
+        $("loadingData").classList.add("hidden");
+        $("connectionStatus").textContent = "Database error";
+        showMessage(
+          error.code === "PERMISSION_DENIED"
+            ? "Database permission denied. Sign in with the PTMS account that owns these parcels and check your Realtime Database rules."
+            : (error.message || "Could not load parcel data."),
+          "danger"
+        );
+      });
+    }
+
+    $("loginForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      hideMessage();
+      $("loginButton").disabled = true;
+      $("loginButton").textContent = "Signing in...";
+      try {
+        await auth.signInWithEmailAndPassword($("email").value.trim(), $("password").value);
+      } catch (error) {
+        showMessage(authErrorText(error));
+      } finally {
+        $("loginButton").disabled = false;
+        $("loginButton").textContent = "Sign In";
+      }
+    });
+
+    $("refreshButton").addEventListener("click", () => {
+      if (currentUser) loadParcels(currentUser.uid);
+    });
+    $("allStatusOn").addEventListener("change", () => { if ($("allStatusOn").checked) setAllStatusMonitors(true); });
+    $("allStatusOff").addEventListener("change", () => { if ($("allStatusOff").checked) setAllStatusMonitors(false); });
+
+
+    auth.onAuthStateChanged((user) => {
+      currentUser = user;
+      $("loadingAuth").classList.add("hidden");
+      hideMessage();
+
+      if (!user) {
+        stopAllStatusMonitors();
+        clearParcelListener();
+        currentParcels = [];
+        $("viewerSection").classList.add("hidden");
+        $("loginSection").classList.remove("hidden");
+        $("accountLabel").textContent = "";
+        $("connectionStatus").textContent = navigator.onLine ? "Ready to sign in" : "Offline";
+        return;
+      }
+
+      $("loginSection").classList.add("hidden");
+      $("viewerSection").classList.remove("hidden");
+      $("accountLabel").textContent = user.email || "Signed in";
+      loadParcels(user.uid);
+    });
+
+    window.addEventListener("online", () => {
+      $("connectionStatus").textContent = "Online";
+      if (currentUser) {
+        loadParcels(currentUser.uid);
+        activeStatusChecks.forEach((state, id) => {
+          const parcel = currentParcels.find(item => String(item.id) === String(id));
+          if (parcel) void refreshStatusMonitor(parcel, state);
+        });
+      }
+    });
+    window.addEventListener("offline", () => {
+      $("connectionStatus").textContent = "Offline — waiting for connection";
+    });
+
+  </script>
+</body>
+</html>

@@ -1352,7 +1352,7 @@ function printParcel(id) {
   .customer-field{display:flex;gap:.806cqw;align-items:flex-start;justify-content:flex-start;direction:rtl;overflow-wrap:anywhere}
   .customer-label{font-weight:800;white-space:nowrap;flex:0 0 auto}
   .customer-value{min-width:0;overflow-wrap:anywhere;white-space:pre-wrap;text-align:right}
-  .address-field .customer-value{font-size:1.6em;font-weight:800;line-height:1.5}
+  .address-field .customer-value{font-size:1.4em;font-weight:800;line-height:1.5}
   .customer-products{display:flex;flex-direction:column;gap:.12cqw}
   .mid-divider{border-top:1px dashed rgba(32,36,58,.24);width:100%}
   .from-row{display:grid;grid-template-columns:30% 68%;gap:2%;min-height:0;padding-top:.806cqw;font-family:'Jameel Noori Nastaleeq',serif}
@@ -1369,7 +1369,7 @@ function printParcel(id) {
   /* The preview and print both use the same three-slot A4 page geometry. */
   @page{size:A4 portrait;margin:1px 10px}
   @media print{
-    html,body{width:100%;height:auto;margin:0!important;padding:0!important;background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    html,body{width:100%;height:100%;margin:0!important;padding:0!important;background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
     .container,.top-panel{display:none!important}
     #printArea{display:block!important;width:100%;margin:0;padding:0}
     .a4-page{width:100%;height:calc(297mm - 2px);margin:0;display:grid;grid-template-rows:repeat(3,minmax(0,1fr));row-gap:3.175mm;page-break-after:always;break-after:page;overflow:hidden;box-sizing:border-box}
